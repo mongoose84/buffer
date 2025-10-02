@@ -116,9 +116,9 @@ async def websocket_endpoint(ws: WebSocket):
     await state.set_streaming(True)
 
     # Configure the wave – feel free to tweak these values
-    FREQ_HZ = 0.5          # 0.5 Hz → one full cycle every 2 seconds
-    SAMPLE_RATE = 40       # 40 samples per second (adjust for smoother wave)
-    CHUNK_SIZE = 8         # send 8 samples ≈ 0.2 s of data per message
+    FREQ_HZ = 1          # 1 Hz → one full cycle every 1 second
+    SAMPLE_RATE = 800      # 800 samples per second (adjust for smoother wave)
+    CHUNK_SIZE = 400        # send 400 samples ≈ 0.5 s of data per message
 
     generator = sine_wave_generator(
         freq_hz=FREQ_HZ,
