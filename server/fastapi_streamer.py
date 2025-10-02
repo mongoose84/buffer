@@ -1,10 +1,10 @@
 # --------------------------------------------------------------
-# fastapi_streamer.py
+# fastapi_streamer.py   (sine‑wave version)
 # --------------------------------------------------------------
 
 import asyncio
 import json
-import random
+import math
 from typing import List
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -13,11 +13,12 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+
 # ------------------------------------------------------------------
 # Shared mutable state – guarded by an async lock
 # ------------------------------------------------------------------
 class StreamState:
-    """Container for the streaming flag and the most recent array."""
+    """Container for the streaming flag and the most‑recent array."""
     def __init__(self):
         self.streaming: bool = False
         self.last_array: List[float] = []
@@ -37,7 +38,9 @@ class StreamState:
             return {"streaming": self.streaming,
                     "array_size": len(self.last_array)}
 
+
 state = StreamState()
+
 
 # ------------------------------------------------------------------
 # Pydantic model for the /status response (optional but nice)
@@ -45,6 +48,7 @@ state = StreamState()
 class StatusResponse(BaseModel):
     streaming: bool
     array_size: int
+
 
 # ------------------------------------------------------------------
 # HTTP API – simple GET endpoint
@@ -57,41 +61,92 @@ async def get_status():
     snap = await state.snapshot()
     return StatusResponse(**snap)
 
+
 # ------------------------------------------------------------------
-# WebSocket endpoint
+# Sine‑wave generator
+# ------------------------------------------------------------------
+def sine_wave_generator(
+    freq_hz: float = 1.0,          # cycles per second
+    sample_rate: int = 50,        # how many samples per second we emit
+    chunk_size: int = 10          # number of samples per WebSocket message
+):
+    """
+    Yields successive chunks of a sine wave.
+
+    Parameters
+    ----------
+    freq_hz : float
+        Desired frequency of the sine wave.
+    sample_rate : int
+        Number of samples produced per second.
+    chunk_size : int
+        How many samples are bundled into each WebSocket payload.
+
+    Yields
+    ------
+    List[float]
+        A list of `chunk_size` consecutive sine values.
+    """
+    # Increment per sample (radians)
+    delta = 2 * math.pi * freq_hz / sample_rate
+    phase = 0.0
+
+    while True:
+        chunk = []
+        for _ in range(chunk_size):
+            # sin(phase) gives a value in [-1, 1]
+            chunk.append(math.sin(phase))
+            phase += delta
+            # Keep phase bounded to avoid floating‑point overflow
+            if phase > 2 * math.pi:
+                phase -= 2 * math.pi
+        yield chunk
+
+
+# ------------------------------------------------------------------
+# WebSocket endpoint – streams the sine wave
 # ------------------------------------------------------------------
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     """
-    Open a WebSocket connection and start sending arrays of floats.
+    Open a WebSocket connection and stream a continuous sine wave.
     While the connection lives we mark `streaming=True`.
     """
     await ws.accept()
     await state.set_streaming(True)
 
+    # Configure the wave – feel free to tweak these values
+    FREQ_HZ = 0.5          # 0.5 Hz → one full cycle every 2 seconds
+    SAMPLE_RATE = 40       # 40 samples per second (adjust for smoother wave)
+    CHUNK_SIZE = 8         # send 8 samples ≈ 0.2 s of data per message
+
+    generator = sine_wave_generator(
+        freq_hz=FREQ_HZ,
+        sample_rate=SAMPLE_RATE,
+        chunk_size=CHUNK_SIZE,
+    )
+
     try:
         while True:
-            # ---- Generate or fetch the next float array ----
-            # Here we just produce a random-length list of random floats.
-            # Replace this block with your real data source if desired.
-            array_len = random.randint(5, 15)          # any size you like
-            float_array = [random.random() for _ in range(array_len)]
+            # Grab the next chunk of samples
+            float_array = next(generator)
 
-            # Store the latest array so /status can report its size
+            # Store the latest chunk so /status can report its size
             await state.update_array(float_array)
 
-            # Send the array as JSON over the socket
+            # Send the chunk as JSON
             payload = json.dumps({"data": float_array})
             await ws.send_text(payload)
 
-            # Adjust the sleep interval to control the streaming rate
-            await asyncio.sleep(0.5)   # 2 messages per second (example)
+            # Sleep just enough to honor the sample‑rate
+            await asyncio.sleep(CHUNK_SIZE / SAMPLE_RATE)
 
     except WebSocketDisconnect:
         # Client closed the socket – clean up
         await state.set_streaming(False)
         # Optionally clear the last array if you don't want stale size info:
         # await state.update_array([])
+
 
 # ------------------------------------------------------------------
 # Optional: a tiny HTML page for quick manual testing
@@ -103,12 +158,13 @@ async def root():
     with a WebSocket client extension, or use the /status endpoint.
     """
     return {
-        "message": "FastAPI streamer running.",
+        "message": "FastAPI sine‑wave streamer running.",
         "endpoints": {
             "GET /status": "Current streaming flag + last array size",
-            "WS  /ws": "WebSocket that streams arrays of floats"
-        }
+            "WS  /ws": "WebSocket that streams a sine wave (float array)",
+        },
     }
+
 
 # --------------------------------------------------------------
 # To run:
