@@ -57,8 +57,11 @@ export const SineLiveChart: React.FC<SineLiveChartProps> = ({
       console.info(`WS closed (${code}): ${reason}`),
     );
 
+    console.log('WebSocket connector created');
+
     // Incoming data is an array of numbers (our sine samples)
     ws.on('data', (arr: number[]) => {
+      console.log('Received data', arr);
       // Push the whole batch into the circular buffer.
       // Overwritten values are ignored here, but you could log them.
       bufferRef.current.push(arr);

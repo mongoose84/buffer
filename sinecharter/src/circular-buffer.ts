@@ -25,6 +25,7 @@ export class CircularBuffer {
 
   /** Push an iterable of numbers; returns any overwritten values. */
   push(values: Iterable<number>): number[] {
+    console.log('Pushing', values);
     this.lock();
     const overwritten: number[] = [];
     try {

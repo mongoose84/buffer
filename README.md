@@ -4,14 +4,18 @@ Circular buffer demo
 
 npm install
 
-Chart.js + React wrapper
-npm install chart.js@^4 react-chartjs-2@^5
+
 
 WebSocket client for Node (only needed if you ever run the same code in a Node env)
 In the browser the native WebSocket is used automatically.
-npm install ws   # optional, harmless in a CRA project
+
+Run client
+npm start
 
 #### Server
+
+Windows
+install python from https://www.python.org/downloads/
 
 cd server
 
@@ -21,3 +25,8 @@ source venv/bin/activate  # macOS / Linux / zsh
 # .\venv\Scripts\Activate.ps1
 
 pip install fastapi uvicorn websockets
+
+
+Run server
+
+uvicorn fastapi_streamer:app --reload

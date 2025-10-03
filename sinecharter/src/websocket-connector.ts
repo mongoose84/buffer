@@ -55,7 +55,8 @@ export class WsConnector extends EventEmitter {
     this.ws = new (WSImpl as any)(url);
 
     // Forward native events to our own EventEmitter interface
-    this.ws.addEventListener('open', () => this.emit('open'));
+
+    this.ws.addEventListener('open', () => this.emit('open'));    
     this.ws.addEventListener('close', (ev: CloseEvent) =>
       this.emit('close', ev.code, ev.reason),
     );
@@ -68,31 +69,29 @@ export class WsConnector extends EventEmitter {
   /** -------------------------------------------------------------
    *  Internal: turn a raw WebSocket message into a typed `data` event
    * ------------------------------------------------------------- */
-  private handleMessage(msg: MessageEvent): void {
-    try {
-      let payload: unknown;
+private handleMessage(msg: MessageEvent): void {
+  try {
+    let payload: unknown;
 
-      if (this.opts.jsonParse) {
-        // Assume text payload; JSON.parse will throw on malformed JSON.
-        payload = JSON.parse(msg.data as string);
-      } else {
-        // Binary payload – give the raw data to the validator.
-        payload = msg.data;
-      }
-
-      // Run the user‑provided (or default) validator.
-      if (!this.opts.validator(payload)) {
-        // Invalid payload – ignore silently.  You could also emit a warning.
-        return;
-      }
-
-      // At this point we know the payload is a number[]
-      this.emit('data', payload as number[]);
-    } catch (err) {
-      // Propagate parsing / validation errors as an 'error' event.
-      this.emit('error', err);
+    if (this.opts.jsonParse) {
+      // Parse the incoming JSON
+      const parsed = JSON.parse(msg.data as string);
+      // Extract the array from the 'data' property if present
+      payload = parsed && Array.isArray(parsed.data) ? parsed.data : parsed;
+    } else {
+      payload = msg.data;
     }
+
+    // Run the validator on the extracted array
+    if (!this.opts.validator(payload)) {
+      return;
+    }
+    console.log('Message received', payload);
+    this.emit('data', payload as number[]);
+  } catch (err) {
+    this.emit('error', err);
   }
+}
 
   /** -------------------------------------------------------------
    *  Public helpers

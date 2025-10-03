@@ -108,65 +108,43 @@ def sine_wave_generator(
 # ------------------------------------------------------------------
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
-    """
-    Open a WebSocket connection and stream a continuous sine wave.
-    While the connection lives we mark `streaming=True`.
-    """
     await ws.accept()
     await state.set_streaming(True)
 
-    # Configure the wave – feel free to tweak these values
-    FREQ_HZ = 1          # 1 Hz → one full cycle every 1 second
-    SAMPLE_RATE = 800      # 800 samples per second (adjust for smoother wave)
-    CHUNK_SIZE = 400        # send 400 samples ≈ 0.5 s of data per message
-
-    generator = sine_wave_generator(
-        freq_hz=FREQ_HZ,
-        sample_rate=SAMPLE_RATE,
-        chunk_size=CHUNK_SIZE,
-    )
+    SAMPLE_RATE = 200
+    CHUNK_SIZE = 400
+    incrementing = True
+    freq_hz = 1.0  # Start at 1 Hz
 
     try:
         while True:
-            # Grab the next chunk of samples
+            # Create a new generator for the current frequency
+            generator = sine_wave_generator(
+                freq_hz=freq_hz,
+                sample_rate=SAMPLE_RATE,
+                chunk_size=CHUNK_SIZE,
+            )
             float_array = next(generator)
-
-            # Store the latest chunk so /status can report its size
             await state.update_array(float_array)
-
-            # Send the chunk as JSON
             payload = json.dumps({"data": float_array})
             await ws.send_text(payload)
+            print(f"Sent {len(float_array)} samples at {freq_hz:.2f} Hz")
 
-            # Sleep just enough to honor the sample‑rate
-            await asyncio.sleep(CHUNK_SIZE / SAMPLE_RATE)
+            # Increment frequency
+            if incrementing:
+                freq_hz += 0.1
+                if freq_hz >= 10.0:
+                    incrementing = False
+            else:
+                freq_hz -= 0.1
+                if freq_hz <= 1.0:
+                    incrementing = True
+
+            await asyncio.sleep(0.1)  # Control the overall send rate
 
     except WebSocketDisconnect:
-        # Client closed the socket – clean up
         await state.set_streaming(False)
         # Optionally clear the last array if you don't want stale size info:
         # await state.update_array([])
 
 
-# ------------------------------------------------------------------
-# Optional: a tiny HTML page for quick manual testing
-# ------------------------------------------------------------------
-@app.get("/", response_class=JSONResponse)
-async def root():
-    """
-    Returns a short instruction snippet. You can point a browser to /ws
-    with a WebSocket client extension, or use the /status endpoint.
-    """
-    return {
-        "message": "FastAPI sine‑wave streamer running.",
-        "endpoints": {
-            "GET /status": "Current streaming flag + last array size",
-            "WS  /ws": "WebSocket that streams a sine wave (float array)",
-        },
-    }
-
-
-# --------------------------------------------------------------
-# To run:
-#   uvicorn fastapi_streamer:app --reload
-# --------------------------------------------------------------

@@ -12,7 +12,7 @@ function App() {
         <h1>Live Sine Wave Demo</h1>
          <SineLiveChart
           wsUrl={WS_URL}
-          bufferSize={800}   // optional – how many samples to keep
+          bufferSize={400}   // optional – how many samples to keep
           refreshMs={30}     // optional – UI refresh interval (ms)
         />
       </header>
