@@ -1,34 +1,77 @@
 # buffer
+
+This project has a FastAPI server that sends sine waves on a websocket. It also has a client side that is a React project to visualize the data being sent.
 ![alt text](Screenshot.png)
 
-Circular buffer demo
-#### Client
+## 1st time install
 
-npm install
+#### Git
+##### Mac:
+use homebrew if on mac: 
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
+brew install git
+```
 
+##### Windows:
+Download git installer
+install python from https://www.python.org/downloads/
 
-WebSocket client for Node (only needed if you ever run the same code in a Node env)
-In the browser the native WebSocket is used automatically.
+Also set environment variables to point to python and pip
 
-Run client
-npm start
+##### Set git user
+```
+git config --global user.name anon
+
+git config --global user.email anon.anonsen@pm.me
+```
+#### Node.js
+Download and install node js installer https://nodejs.org/en/download
+
+#### Install Visual Studio code
+https://code.visualstudio.com/download
+
+##### VS Code Extensions
+Git Graph
+
+Markdown Preview
+
+Vue
+
+Github actions
+
+Python
+
+## Running the project
 
 #### Server
 
 Windows
-install python from https://www.python.org/downloads/
 
+```
 cd server
-
+```
+```
 python3 -m venv venv      # creates a folder named “venv”
 source venv/bin/activate  # macOS / Linux / zsh
-# Windows PowerShell:
-# .\venv\Scripts\Activate.ps1
-
+Windows PowerShell:
+ .\venv\Scripts\Activate.ps1
+```
+```
 pip install fastapi uvicorn websockets
-
+```
 
 Run server
-
+```
 uvicorn fastapi_streamer:app --reload
+```
+#### Client
+```
+cd sinecharter
+npm install
+```
+Run client
+```
+npm start
+```
