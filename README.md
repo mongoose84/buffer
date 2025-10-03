@@ -1,6 +1,6 @@
 # buffer
 
-This project has a FastAPI server that sends sine waves on a websocket. It also has a client side that is a React project to visualize the data being sent.
+This project has a FastAPI server that sends sine waves on a websocket. It also has a client side that is a React project to visualize the data being sent. After receiving data it adds it to a circular buffer that then holds the data until the UI is ready to take the data.
 ![alt text](Screenshot.png)
 
 ## 1st time install
