@@ -1,178 +1,170 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Line } from 'react-chartjs-2';
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   LinearScale,
+  LogarithmicScale,
   CategoryScale,
-  PointElement,
-  LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
   ChartOptions,
-} from 'chart.js';
-import { CircularBuffer } from './circular-buffer';
-import { createWsConnector } from './websocket-connector';
+} from "chart.js";
 
-// --- WebXI imports (from previous examples) ----------------------------
-import { setupStream, dataTypeConv, getStreamID } from './webxi/stream-handler';
-import { startPauseMeasurement, stopMeasurement } from './webxi/measurement-handler';
-import { MovingLeq, SLM_Setup_LAeq } from './webxi/Leq';
-import { getSequence } from './webxi/sequence-handler';
+import { dataTypeConv } from "./webxi/stream-handler";
+import { setupStream, getStreamID } from "./webxi/stream-handler";
+import { startPauseMeasurement, stopMeasurement } from "./webxi/measurement-handler";
+import { getSequence } from "./webxi/sequence-handler";
+import { SLM_Setup_LAeq } from "./webxi/Leq";
 
 // Register Chart.js components
-ChartJS.register(LinearScale, CategoryScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(
+  LinearScale,
+  LogarithmicScale,
+  CategoryScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
-/** Props – you can pass the WS URL and buffer size if you like */
-interface SineLiveChartProps {
-  bufferSize?: number;
-  refreshMs?: number;
-}
-
-/** Configuration – set to true to use real WebXI SLM stream instead of test sine data */
-const USE_WEBXI = true;
-
-// --- WebXI connection settings -----------------------------------------
-const ip = 'localhost:4000/api';
-const streamingip = '10.42.0.1';
+const ip = "localhost:4000/api";
 const host = `http://${ip}`;
-const sequenceID = 6;
+const sequenceID = 76;
 
-/** Main component */
-export const SineLiveChart: React.FC<SineLiveChartProps> = ({
-  bufferSize = 2400,
-  refreshMs = 50,
-}) => {
-  const [chartData, setChartData] = useState<number[]>([]);
-  const bufferRef = useRef(new CircularBuffer(bufferSize));
+// --- Metadata from your example ----------------------------
+const meta = {
+  AcousticalWeighting: "A",
+  AveragingMode: "Fast",
+  FunctionType: "OctaveL",
+  Name: "CPBLAF",
+  LocalName: "LAF",
+  DataType: "Int16",
+  Scale: 0.01,
+  Unit: "dB re 20uPa",
+  VectorLength: 33,
+  DataAxisCpbNumberFractions: 3,
+  DataAxisCpbBaseSystem: 10,
+  DataAxisCpbFirstBand: 11,
+  DataAxisUnit: "Hz",
+  DataAxisDataType: "Float64",
+  DataAxisType: "CPB",
+};
+
+export const SineLiveChart: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
-  const animationFrame = useRef<number | null>(null);
+  const [chartData, setChartData] = useState<{ x: number; y: number }[]>([]);
 
-  // --- Effect: connect to WebSocket or WebXI ---------------------------
-  useEffect(() => {
-    let running = true;
-
-    if (USE_WEBXI) {
-      (async () => {
-        try {
-          //console.log('🔧 Initializing WebXI stream...');
-          await SLM_Setup_LAeq(host);
-          return
-          // Get sequence info (e.g. LAeq data type)
-          const [id, sequence] = await getSequence(host, sequenceID);
-          const dataType = sequence.DataType;
-
-          const numberId = Number(id);
-          if (isNaN(numberId)) throw new Error('Invalid sequence ID');
-          // Create and start WebXI stream
-          const uri = await setupStream(host, ip, numberId, 'LAeqStream');
-          await startPauseMeasurement(host, true);
-
-          console.log('✅ WebXI stream ready at:', uri);
-          
-          const ws = new WebSocket(uri);
-          wsRef.current = ws;
-
-          ws.onopen = () => console.info('WebXI WebSocket connected');
-          ws.onerror = (err) => console.error('WebXI WS error', err);
-          ws.onclose = async () => {
-            console.info('WebXI WebSocket closed');
-            await stopMeasurement(host);
-            const streamID = await getStreamID(host, 'LAeqStream');
-            if (streamID) {
-              await fetch(`${host}/WebXi/Streams/${streamID}`, { method: 'DELETE' });
-              console.info('🧹 Cleaned up WebXI stream');
-            }
-          };
-
-          // Use moving average to smooth LAeq (10 s window)
-          const leqMov = new MovingLeq(10, true);
-
-          ws.onmessage = (event) => {
-            console.log('WebXI message received');
-            if (!running) return;
-            const msg = event.data as ArrayBuffer;
-            const bytes = new Uint8Array(msg);
-
-            // Convert BK binary payload to Int16 LAeq value
-            const val = dataTypeConv(dataType, bytes, undefined) as number;
-            const LAeq = val / 100;
-            const LAeqMov = leqMov.move(LAeq);
-
-            // Push to buffer for chart
-            bufferRef.current.push([LAeqMov]);
-          };
-        } catch (err) {
-          console.error('WebXI init error:', err);
-        }
-      })();
-    } else {
-      // --- Local test sine WS (demo mode) -------------------------------
-      const wsUrl = 'ws://127.0.0.1:8000/ws';
-      const ws = createWsConnector(wsUrl);
-      //wsRef.current = ws;
-
-      ws.on('open', () => console.info('Demo WebSocket opened'));
-      ws.on('data', (arr: number[]) => bufferRef.current.push(arr));
-      ws.on('close', () => console.info('Demo WebSocket closed'));
-    }
-
-    // --- Cleanup on unmount -------------------------------------------
-    return () => {
-      running = false;
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      if (animationFrame.current !== null) clearTimeout(animationFrame.current);
-    };
+  // 1️⃣ Prepare frequency axis (decode Float64 or generate if needed)
+  const freqs = useMemo(() => {
+    // If you have a frequency buffer from device, decode it here.
+    // For demo, we'll just use standard 1/3-octave center bands:
+    const bands = [
+      12.5, 16, 20, 25, 31.5, 40, 50, 63, 80, 100,
+      125, 160, 200, 250, 315, 400, 500, 630, 800,
+      1000, 1250, 1600, 2000, 2500, 3150, 4000,
+      5000, 6300, 8000, 10000, 12500, 16000, 20000,
+    ];
+    return bands.slice(0, meta.VectorLength);
   }, []);
 
-  // --- Effect: UI refresh loop ----------------------------------------
+  // 2️⃣ Connect to WebSocket once
   useEffect(() => {
-    const tick = () => {
-      setChartData(bufferRef.current.read());
-      animationFrame.current = window.setTimeout(tick, refreshMs);
-    };
-    tick();
+    (async () => {
+      try {
+        await SLM_Setup_LAeq(host);
+        const [id, sequence] = await getSequence(host, sequenceID);
+        const uri = await setupStream(host, ip, Number(id), "LAeqStream");
+        await startPauseMeasurement(host, true);
+
+        const ws = new WebSocket(uri);
+        wsRef.current = ws;
+
+        ws.onopen = () => console.info("WebXI WebSocket connected");
+        ws.onclose = async () => {
+          console.info("WebXI WebSocket closed");
+          await stopMeasurement(host);
+          const streamID = await getStreamID(host, "LAeqStream");
+          if (streamID) {
+            await fetch(`${host}/WebXi/Streams/${streamID}`, { method: "DELETE" });
+            console.info("🧹 Cleaned up WebXI stream");
+          }
+        };
+
+        ws.onmessage = (event) => {
+          if (event.data instanceof Blob) {
+            event.data.arrayBuffer().then((buf) => {
+              const values = dataTypeConv(meta.DataType, buf, meta.VectorLength) as number[];
+              const scaled = values.map((v) => v * meta.Scale);
+
+              const dataset = freqs.map((f, i) => ({
+                x: f,
+                y: scaled[i],
+              }));
+
+              setChartData(dataset);
+            });
+          }
+        };
+      } catch (err) {
+        console.error("WebXI init error:", err);
+      }
+    })();
+
     return () => {
-      if (animationFrame.current !== null) clearTimeout(animationFrame.current);
+      if (wsRef.current) wsRef.current.close();
     };
-  }, [refreshMs]);
+  }, [freqs]);
 
-  // --- Chart.js configuration -----------------------------------------
-  const data = {
-    labels: chartData.map((_v, i) => i),
-    datasets: [
-      {
-        label: USE_WEBXI ? 'LAeq (mov,10s)' : 'Live sine',
-        data: chartData,
-        borderColor: USE_WEBXI ? 'rgba(255, 99, 132, 1)' : 'rgba(75,192,192,1)',
-        backgroundColor: USE_WEBXI
-          ? 'rgba(255,99,132,0.2)'
-          : 'rgba(75,192,192,0.2)',
-        fill: false,
-        tension: 0.2,
-        pointRadius: 0,
-      },
-    ],
-  };
-
-  const options: ChartOptions<'line'> = {
+  // 3️⃣ Chart configuration
+  const options: ChartOptions<"bar"> = {
     responsive: true,
     animation: false,
     scales: {
-      x: { display: false },
-      y: USE_WEBXI ? { min: 30, max: 100 } : { min: -1.2, max: 1.2 },
+      x: {
+        type: "logarithmic",
+        title: { display: true, text: "Frequency (Hz)" },
+        min: 500,
+        max: 25000,
+        ticks: {
+          callback: (value) => {
+            const freq = Number(value);
+            if ([10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000].includes(freq))
+              return freq >= 1000 ? `${freq / 1000}k` : freq;
+            return null;
+          },
+        },
+      },
+      y: {
+        title: { display: true, text: meta.Unit },
+      },
     },
     plugins: {
       legend: { display: false },
       title: {
         display: true,
-        text: USE_WEBXI ? 'Live LAeq (WebXI SLM Stream)' : 'Live Sine Wave (WebSocket source)',
+        text: `${meta.LocalName} (${meta.AveragingMode}, ${meta.AcousticalWeighting}-weighting)`,
       },
     },
   };
 
-  return <Line data={data} options={options} />;
+  // 4️⃣ Render chart
+  return (
+    <div style={{ width: "100%", height: "500px" }}>
+      <Bar
+        data={{
+          datasets: [
+            {
+              label: meta.LocalName,
+              data: chartData,
+              backgroundColor: "rgba(0, 123, 255, 0.6)",
+              borderRadius: 4,
+            },
+          ],
+        }}
+        options={options}
+      />
+    </div>
+  );
 };

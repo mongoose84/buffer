@@ -8,7 +8,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Live Sine Wave Demo</h1>
+        <h1>Live Web-XI Demo</h1>
          <SineLiveChart />
         
       </header>

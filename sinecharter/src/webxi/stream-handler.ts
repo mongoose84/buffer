@@ -62,26 +62,36 @@ export async function getStreamID(
 /**
  * Convert byte data retrieved from BK2245 to Int16 or BKTimeSpan format.
  */
-export function dataTypeConv(
-  dataType: "Int16" | "BKTimeSpan",
-  value: Uint8Array,
-  vectorLength?: number
-): number | number[] {
+export function dataTypeConv(dataType: string, value: ArrayBuffer, vectorLength?: number): number | number[] {
+  const view = new DataView(value);
+  const byteLength = view.byteLength;
+
   if (dataType === "Int16") {
-    if (vectorLength == null) {
-      return new DataView(value.buffer).getInt16(0, true);
-    } else {
-      const valueArray: number[] = [];
-      for (let i = 0; i < vectorLength * 2; i += 2) {
-        const intVal = new DataView(value.buffer).getInt16(i, true);
-        valueArray.push(intVal);
+    if (!vectorLength) {
+      if (byteLength < 2) {
+        console.warn("⚠️ Not enough bytes for Int16:", byteLength);
+        return 0;
       }
-      return valueArray;
+      return view.getInt16(0, true);
     }
-  } else if (dataType === "BKTimeSpan") {
-    const offset = value.length - 4;
-    return new DataView(value.buffer).getInt32(offset, true);
+
+    const safeLength = Math.floor(byteLength / 2);
+    const count = Math.min(vectorLength, safeLength);
+    const values: number[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const offset = i * 2;
+      values.push(view.getInt16(offset, true));
+    }
+
+    if (count < vectorLength) {
+      console.warn(
+        `⚠️ Truncated Int16 array: expected ${vectorLength}, got ${count}`
+      );
+    }
+
+    return values;
   }
 
-  throw new Error(`Unsupported data type: ${dataType}`);
+  return [];
 }
