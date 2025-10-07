@@ -33,7 +33,8 @@ interface SineLiveChartProps {
 const USE_WEBXI = true;
 
 // --- WebXI connection settings -----------------------------------------
-const ip = '10.42.0.1';
+const ip = 'localhost:4000/api';
+const streamingip = '10.42.0.1';
 const host = `http://${ip}`;
 const sequenceID = 6;
 
@@ -54,9 +55,9 @@ export const SineLiveChart: React.FC<SineLiveChartProps> = ({
     if (USE_WEBXI) {
       (async () => {
         try {
-          console.log('🔧 Initializing WebXI stream...');
+          //console.log('🔧 Initializing WebXI stream...');
           await SLM_Setup_LAeq(host);
-
+          return
           // Get sequence info (e.g. LAeq data type)
           const [id, sequence] = await getSequence(host, sequenceID);
           const dataType = sequence.DataType;
@@ -68,7 +69,7 @@ export const SineLiveChart: React.FC<SineLiveChartProps> = ({
           await startPauseMeasurement(host, true);
 
           console.log('✅ WebXI stream ready at:', uri);
-
+          
           const ws = new WebSocket(uri);
           wsRef.current = ws;
 

@@ -36,7 +36,7 @@ export async function setupStream(
   }
 
   const json = (await response.json()) as { URI: string[] };
-  return `ws://${ip}${json.URI[0]}`;
+  return `ws://${'10.42.0.1'}${json.URI[0]}`;
 }
 
 /**

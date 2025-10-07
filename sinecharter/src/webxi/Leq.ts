@@ -7,13 +7,12 @@ export async function SLM_Setup_LAeq(host: string): Promise<void> {
   // Enable logging mode
   console.log('Enabling logging mode...');
   const url = `${host}/webxi/Applications/SLM/Setup/ControlLoggingMode`;
-    console.log('PUT', url);
   await fetch(url, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(1),
   });
-
+  
   // Set the device in free-running mode
     console.log('Setting free-running mode...');
   await fetch(`${host}/webxi/Applications/SLM/Setup/ControlMeasurementTimeControl`, {
