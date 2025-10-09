@@ -59,6 +59,7 @@ export async function getSequence(hostID: string, ID: number | string): Promise<
   const sequence = findSequence(ID, sequences);
 
   if (sequence === null) {
+    console.log(url);
     throw new Error(`No such sequence: ${ID}`);
   }
 

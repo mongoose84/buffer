@@ -34,7 +34,7 @@ const host = `http://${ip}`;
 const sequenceID = 76;
 
 // --- Metadata from your example ----------------------------
-const meta = {
+const sequenceMetadata = {
   AcousticalWeighting: "A",
   AveragingMode: "Fast",
   FunctionType: "OctaveL",
@@ -52,7 +52,7 @@ const meta = {
   DataAxisType: "CPB",
 };
 
-export const SineLiveChart: React.FC = () => {
+export const LiveBarChart: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const [chartData, setChartData] = useState<{ x: number; y: number }[]>([]);
 
@@ -66,7 +66,7 @@ export const SineLiveChart: React.FC = () => {
       1000, 1250, 1600, 2000, 2500, 3150, 4000,
       5000, 6300, 8000, 10000, 12500, 16000, 20000,
     ];
-    return bands.slice(0, meta.VectorLength);
+    return bands.slice(0, sequenceMetadata.VectorLength);
   }, []);
 
   // 2️⃣ Connect to WebSocket once
@@ -95,8 +95,8 @@ export const SineLiveChart: React.FC = () => {
         ws.onmessage = (event) => {
           if (event.data instanceof Blob) {
             event.data.arrayBuffer().then((buf) => {
-              const values = dataTypeConv(meta.DataType, buf, meta.VectorLength) as number[];
-              const scaled = values.map((v) => v * meta.Scale);
+              const values = dataTypeConv(sequence.DataType, buf, sequence.VectorLength) as number[];
+              const scaled = values.map((v) => v * sequence.Scale);
 
               const dataset = freqs.map((f, i) => ({
                 x: f,
@@ -137,14 +137,14 @@ export const SineLiveChart: React.FC = () => {
         },
       },
       y: {
-        title: { display: true, text: meta.Unit },
+        title: { display: true, text: sequenceMetadata.Unit },
       },
     },
     plugins: {
       legend: { display: false },
       title: {
         display: true,
-        text: `${meta.LocalName} (${meta.AveragingMode}, ${meta.AcousticalWeighting}-weighting)`,
+        text: `${sequenceMetadata.LocalName} (${sequenceMetadata.AveragingMode}, ${sequenceMetadata.AcousticalWeighting}-weighting)`,
       },
     },
   };
@@ -156,7 +156,7 @@ export const SineLiveChart: React.FC = () => {
         data={{
           datasets: [
             {
-              label: meta.LocalName,
+              label: sequenceMetadata.LocalName,
               data: chartData,
               backgroundColor: "rgba(0, 123, 255, 0.6)",
               borderRadius: 4,

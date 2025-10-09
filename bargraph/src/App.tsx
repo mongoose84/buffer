@@ -1,6 +1,6 @@
 import React from 'react';
 import './App.css';
-import { SineLiveChart } from './SineLiveChart';
+import { LiveBarChart } from './LiveBarChart';
 
 function App() {
   
@@ -9,7 +9,7 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>Live Web-XI Demo</h1>
-         <SineLiveChart />
+         <LiveBarChart />
         
       </header>
     </div>
