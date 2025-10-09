@@ -1,6 +1,6 @@
 # buffer
 
-This project has a FastAPI server that sends sine waves on a websocket. It also has a client side that is a React project to visualize the data being sent. After receiving data it adds it to a circular buffer that then holds the data until the UI is ready to take the data.
+This project is a demo on how to connect to a SLM from Brüel & Kjær and show data in a bar graph in React. It uses a FastAPI python proxy server to setup the device.
 ![alt text](Screenshot.png)
 
 ## 1st time install
@@ -47,10 +47,8 @@ Python
 
 #### Server
 
-Windows
-
 ```
-cd server
+cd webxiproxy
 ```
 ```
 python3 -m venv venv      # creates a folder named “venv”
@@ -59,16 +57,16 @@ Windows PowerShell:
  .\venv\Scripts\Activate.ps1
 ```
 ```
-pip install fastapi uvicorn websockets
+pip install fastapi uvicorn httpx
 ```
 
 Run server
 ```
-uvicorn fastapi_streamer:app --reload
+uvicorn main:app --reload
 ```
 #### Client
 ```
-cd sinecharter
+cd bargraph
 npm install
 ```
 Run client
