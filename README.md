@@ -1,6 +1,10 @@
 # buffer
 
 This project is a demo on how to connect to a SLM from Brüel & Kjær and show data in a bar graph in React. It uses a FastAPI python proxy server to setup the device.
+
+The documentation for the Web-XI protocol can be found here: https://github.com/hbk-world/Open-Interface-for-Sound-Level-Meter/blob/master/Documentation/SLM%20WebXi%20protocol%20specification.pdf
+
+Below is a screenshot of the bargraph running
 ![alt text](Screenshot.png)
 
 ## 1st time install
